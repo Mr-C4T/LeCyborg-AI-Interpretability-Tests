@@ -1,0 +1,20 @@
+# LeCyborg-AI-Interpretability
+
+This is a **🚧 fork of [physical-AI-interpretability](https://github.com/illelab/physical-AI-interpretability)**, adapted to provide **interpretability tools for the [LeCyborg project](https://github.com/Mr-C4T/LeCyborg)**.
+
+While the original work focused on **visual attention mapping** + **proprioceptive features**, this fork's goal is to extend the attention visualization tools to support our **EMG sensor data** collected from the LeCyborg wearable myo sensor.
+
+## 🧠 LeCyborg Attention Map
+
+<p align="center">
+  <img src="media/emg_attention1.gif" width="480">
+  <img src="media/emg_attention2.gif" width="480">
+</p>
+
+## 📖 Original Work & Credits
+
+Huge thanks to [Ville Ilves](https://github.com/illelab) for the original repository and method. You can find the original untouched README and codebase here:
+
+👉 [`old_README.md`](./old_README.md)
+
+I encourage anyone interested in interpretability in physical AI to explore the original work!
