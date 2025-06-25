@@ -13,7 +13,7 @@ While the original work focused on **visual attention mapping** + **propriocepti
 
 ## 📖 Original Work & Credits
 
-Huge thanks to [Ville Ilves](https://github.com/illelab) for the original repository and method. You can find the original untouched README and codebase here:
+Huge thanks to [Ville Ilves](https://github.com/illelab) for the original repository and method. You can find the original untouched README here:
 
 👉 [`old_README.md`](./old_README.md)
 
