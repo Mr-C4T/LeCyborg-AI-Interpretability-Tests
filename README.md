@@ -6,8 +6,8 @@ While the original work focused on **visual attention mapping** + **propriocepti
 
 ## 🧠 LeCyborg Attention Mapping
 
-<img src="assets/emg_attention.gif" width="480">
-<img src="assets/emg_dataset.gif" width="480">
+<img src="assets/emg_attention.gif" width="800">
+<img src="assets/emg_dataset.gif" width="800">
 
 ## 📖 Original Work & Credits
 
