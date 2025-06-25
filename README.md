@@ -11,8 +11,8 @@ While the original work focused on **visual attention mapping** + **propriocepti
 
 ## 📖 Original Work & Credits
 
-#### Huge thanks to [villekuosmanen](https://github.com/villekuosmanen) for the original repository and method. You can find the original untouched README here:
-👉 [`old_README.md`](./old_README.md)
+#### Huge thanks to [villekuosmanen](https://github.com/villekuosmanen) for the awesome repo and code and method. You can find the original README here:
+📃 [`old_README.md`](./old_README.md)
 
-#### I encourage anyone interested in interpretability in physical AI to explore the original repo !
-👉 [physical-AI-interpretability](https://github.com/villekuosmanen/physical-AI-interpretability)
+#### I encourage anyone interested in interpretability and physical AI to go check his work and give it a star !
+⭐ [physical-AI-interpretability](https://github.com/villekuosmanen/physical-AI-interpretability)
