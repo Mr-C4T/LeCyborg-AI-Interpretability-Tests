@@ -169,24 +169,50 @@ def analyze_episode(dataset: LeRobotDataset, policy, episode_id: int, device: to
                 result = policy.select_action(observation)
                 if isinstance(result, tuple):
                     action, attention_maps = result
-
-                    # --- Visualize attention for observation.sensor if present ---
-                    # After running select_action and after printing EMG value...
+    
+                    # --- Print raw attention for observation.sensor (EMG) ---
                     if 'observation.sensor' in observation:
                         sensor_token_idx = policy.token_key_to_index.get('observation.sensor', None)
                         attn = getattr(policy, "last_raw_attention", None)
                         if attn is not None and sensor_token_idx is not None:
+                            # Remove batch dims if present
                             while attn.dim() > 4:
                                 attn = attn[0]
+                            # Average over attention heads if present
                             if attn.dim() == 4:
-                                attn_avg = attn.mean(dim=(0, 1))
+                                attn_avg = attn.mean(dim=(0, 1))  # [tgt_len, src_len]
                             elif attn.dim() == 3:
-                                attn_avg = attn[0]
+                                attn_avg = attn[0]  # [tgt_len, src_len]
                             else:
                                 attn_avg = None
                             if attn_avg is not None:
+                                # Average across all decoder output tokens for observation.sensor
                                 emg_att_value = attn_avg[:, sensor_token_idx].mean().item()
-                                print(f"Frame {i} raw attention for observation.sensor (EMG): {emg_att_value:.4f}")
+                                print(f"Frame {i} raw attention for observation.sensor (EMG): {emg_att_value:.6f}")
+    
+                                # --- Match proprio normalization: compute global min/max including proprio, all attn, and EMG ---
+                                attention_values = []
+    
+                                # (1) Proprio attention (if available)
+                                proprio_token_idx = policy.token_key_to_index.get('observation.state', None)
+                                if proprio_token_idx is not None:
+                                    proprio_att_value = attn_avg[:, proprio_token_idx].mean().item()
+                                    attention_values.append(proprio_att_value)
+    
+                                # (2) All attention values (for all tokens, all outputs)
+                                attention_values.extend(attn_avg.cpu().numpy().flatten())
+    
+                                # (3) EMG attention
+                                attention_values.append(emg_att_value)
+    
+                                # Compute global min/max over these values
+                                global_min = float(np.min(attention_values))
+                                global_max = float(np.max(attention_values))
+                                if global_max > global_min:
+                                    emg_att_value_norm = (emg_att_value - global_min) / (global_max - global_min)
+                                else:
+                                    emg_att_value_norm = 0.0
+                                print(f"Frame {i} normalized attention for observation.sensor (EMG): {emg_att_value_norm:.6f}")
                             else:
                                 print(f"Frame {i} could not get raw attention for observation.sensor")
                         else:
