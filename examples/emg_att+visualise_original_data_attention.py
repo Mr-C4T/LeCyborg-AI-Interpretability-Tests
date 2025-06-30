@@ -171,9 +171,27 @@ def analyze_episode(dataset: LeRobotDataset, policy, episode_id: int, device: to
                     action, attention_maps = result
 
                     # --- Visualize attention for observation.sensor if present ---
+                    # After running select_action and after printing EMG value...
                     if 'observation.sensor' in observation:
-                        sensor_attn = policy.get_token_attention(attention_maps, observation, token_key='observation.sensor')
-                        print(f"Frame {i} attention for observation.sensor: {sensor_attn}")
+                        sensor_token_idx = policy.token_key_to_index.get('observation.sensor', None)
+                        attn = getattr(policy, "last_raw_attention", None)
+                        if attn is not None and sensor_token_idx is not None:
+                            while attn.dim() > 4:
+                                attn = attn[0]
+                            if attn.dim() == 4:
+                                attn_avg = attn.mean(dim=(0, 1))
+                            elif attn.dim() == 3:
+                                attn_avg = attn[0]
+                            else:
+                                attn_avg = None
+                            if attn_avg is not None:
+                                emg_att_value = attn_avg[:, sensor_token_idx].mean().item()
+                                print(f"Frame {i} raw attention for observation.sensor (EMG): {emg_att_value:.4f}")
+                            else:
+                                print(f"Frame {i} could not get raw attention for observation.sensor")
+                        else:
+                            print(f"Frame {i} no raw attention available or sensor token missing")
+
 
                     # Usual visualization
                     visualizations = policy.visualize_attention(
