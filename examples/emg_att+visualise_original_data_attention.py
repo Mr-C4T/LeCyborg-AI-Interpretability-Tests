@@ -28,11 +28,54 @@ def none_or_int(value):
     return int(value)
 
 def encode_video_ffmpeg(frames, output_filename, fps, pix_fmt_in="bgr24"):
-    # ... (unchanged, omitted for brevity)
-    pass
+    """
+    Encodes a list of numpy frames into a video using ffmpeg.
+    """
+    if not frames:
+        print(f"No frames to encode for {output_filename}.")
+        return
+
+    height, width, channels = frames[0].shape
+    if channels != 3:
+        print(f"Error: Frames must be 3-channel (BGR). Got {channels} channels.")
+        return
+
+    command = [
+        'ffmpeg',
+        '-y',  # Overwrite output file if it exists
+        '-f', 'rawvideo',
+        '-vcodec', 'rawvideo',
+        '-s', f'{width}x{height}',  # Frame size
+        '-pix_fmt', pix_fmt_in,     # Input pixel format
+        '-r', str(fps),             # Frames per second
+        '-i', '-',                  # Input comes from stdin
+        '-an',                      # No audio
+        '-vcodec', 'libx264',       # Output video codec
+        '-pix_fmt', 'yuv420p',      # Output pixel format for broad compatibility
+        '-crf', '23',               # Constant Rate Factor (quality, 18-28 is good range)
+        output_filename
+    ]
+
+    try:
+        process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        for frame in frames:
+            process.stdin.write(frame.tobytes())
+        
+        stdout, stderr = process.communicate()
+        
+        if process.returncode != 0:
+            print(f"Error encoding video {output_filename}:")
+            print(f"FFmpeg stderr:\n{stderr.decode(errors='ignore')}")
+        else:
+            print(f"Successfully encoded video: {output_filename}")
+            
+    except FileNotFoundError:
+        print("Error: ffmpeg command not found. Please ensure ffmpeg is installed and in your PATH.")
+    except Exception as e:
+        print(f"An unexpected error occurred during video encoding for {output_filename}: {e}")
 
 def load_policy(policy_path: str, dataset_meta, policy_overrides: list = None) -> Tuple[torch.nn.Module, dict]:
-    # ... (unchanged, omitted for brevity)
+    """Load and initialize a policy from checkpoint."""
     if policy_overrides:
         overrides = {}
         for override in policy_overrides:
@@ -48,11 +91,37 @@ def load_policy(policy_path: str, dataset_meta, policy_overrides: list = None) -
     return policy, policy_cfg
 
 def prepare_observation_for_policy(frame: dict, device: torch.device, model_dtype: torch.dtype = torch.float32, debug: bool = False) -> dict:
+    """Convert dataset frame to policy observation format."""
     observation = {}
     for key, value in frame.items():
         if "image" in key:
-            # ... (unchanged, omitted for brevity)
-            continue
+            if debug:
+                print(f"Processing {key}: original shape {value.shape}, dtype {value.dtype}")
+            # Convert image to policy format: channel first, float32 in [0,1], with batch dimension
+            if isinstance(value, torch.Tensor):
+                while value.dim() > 3:
+                    value = value.squeeze(0)
+                if value.dim() != 3:
+                    raise ValueError(f"Expected 3D tensor for {key} after squeezing, got shape {value.shape}")
+                h, w, c = value.shape
+                if c not in [1, 3]:
+                    if h in [1, 3]:
+                        pass  # Format is (C, H, W) - already correct
+                    elif w in [1, 3]:
+                        value = value.permute(2, 0, 1)  # (H, W, C) -> (C, H, W)
+                    else:
+                        value = value.permute(2, 0, 1)
+                else:
+                    value = value.permute(2, 0, 1)
+                if debug:
+                    print(f"After permutation: {value.shape}")
+                if value.dtype != model_dtype:
+                    value = value.type(model_dtype)
+                if value.max() > 1.0:
+                    value = value / 255.0
+                if debug:
+                    print(f"Final shape for {key}: {value.shape}, range: [{value.min():.3f}, {value.max():.3f}]")
+            observation[key] = value.unsqueeze(0).to(device)  # Add batch dimension
         elif key in ["observation.state", "robot_state", "state"]:
             if not isinstance(value, torch.Tensor):
                 value = torch.from_numpy(value).type(model_dtype)
@@ -65,6 +134,11 @@ def prepare_observation_for_policy(frame: dict, device: torch.device, model_dtyp
 
 def analyze_episode(dataset: LeRobotDataset, policy, episode_id: int, device: torch.device,
                    output_dir: str, model_dtype: torch.dtype = torch.float32) -> Dict:
+    """
+    Run policy inference on an episode and analyze feature importance, including sensor attention.
+    Returns:
+        Dictionary containing analysis results
+    """
     episode_frames = dataset.hf_dataset.filter(lambda x: x["episode_index"] == episode_id)
     episode_length = len(episode_frames)
     if episode_length == 0:
@@ -153,8 +227,116 @@ def analyze_episode(dataset: LeRobotDataset, policy, episode_id: int, device: to
     return analysis_results
 
 def main():
-    # ... (unchanged, omitted for brevity)
-    pass
+    parser = argparse.ArgumentParser(description="Analyze policy behavior on dataset episodes")
+    parser.add_argument("--dataset-repo-id", type=str, required=True,
+                        help="Repository ID of the dataset to analyze")
+    parser.add_argument("--episode-id", type=int, default=None,
+                        help="Episode ID to analyze (if not specified, analyzes all episodes)")
+    parser.add_argument("--policy-path", type=str, required=True,
+                        help="Path to the policy checkpoint")
+    parser.add_argument("--output-dir", type=str, default="./analysis_output",
+                        help="Directory to save analysis results")
+    parser.add_argument("--policy-overrides", type=str, nargs="*",
+                        help="Policy config overrides in key=value format")
+    parser.add_argument("--device", type=str, default="cuda",
+                        help="Device to use for inference")
+    parser.add_argument("--model-dtype", type=str, default="float32",
+                        choices=["float32", "float16", "bfloat16"],
+                        help="Model data type")
+    
+    args = parser.parse_args()
+    
+    # Set up device and dtype
+    device = torch.device(args.device)
+    dtype_map = {
+        "float32": torch.float32,
+        "float16": torch.float16, 
+        "bfloat16": torch.bfloat16
+    }
+    model_dtype = dtype_map[args.model_dtype]
+    
+    print(f"Loading dataset: {args.dataset_repo_id}")
+    print(f"Policy path: {args.policy_path}")
+    print(f"Using device: {device}")
+    
+    # Load dataset
+    try:
+        dataset = LeRobotDataset(args.dataset_repo_id)
+        print(f"Dataset loaded successfully. Total episodes: {dataset.num_episodes}")
+        
+    except Exception as e:
+        print(f"Error loading dataset: {e}")
+        return
+    
+    # Determine which episodes to analyze
+    if args.episode_id is not None:
+        # Single episode analysis
+        if args.episode_id >= dataset.num_episodes:
+            raise ValueError(f"Episode {args.episode_id} not found. Dataset has {dataset.num_episodes} episodes.")
+        episodes_to_analyze = [args.episode_id]
+        print(f"Target episode: {args.episode_id}")
+    else:
+        # All episodes analysis
+        episodes_to_analyze = list(range(dataset.num_episodes))
+        print(f"Will analyze all {dataset.num_episodes} episodes")
+    
+    # Load policy
+    try:
+        print("Loading policy...")
+        policy, policy_cfg = load_policy(
+            args.policy_path,
+            dataset.meta,
+            args.policy_overrides
+        )
+        
+        if hasattr(policy, 'model'):
+            policy.model.eval()
+            policy.model.to(device)
+        elif hasattr(policy, 'eval'):
+            policy.eval()
+            
+        print("Policy loaded successfully")
+        
+    except Exception as e:
+        print(f"Error loading policy: {e}")
+        return
+    
+    # Run analysis on all specified episodes
+    all_results = []
+    failed_episodes = []
+    
+    for episode_id in tqdm(episodes_to_analyze, desc="Analyzing episodes"):
+        try:
+            print(f"\nStarting analysis of episode {episode_id}...")
+            results = analyze_episode(
+                dataset=dataset,
+                policy=policy,
+                episode_id=episode_id,
+                device=device,
+                output_dir=args.output_dir,
+                model_dtype=model_dtype
+            )
+            all_results.append(results)
+            print(f"Episode {episode_id} analysis completed successfully")
+            
+        except Exception as e:
+            print(f"Error analyzing episode {episode_id}: {e}")
+            failed_episodes.append(episode_id)
+            import traceback
+            traceback.print_exc()
+            continue
+    
+    # Summary
+    print(f"\n{'='*60}")
+    print(f"ANALYSIS SUMMARY")
+    print(f"{'='*60}")
+    print(f"Successfully analyzed: {len(all_results)} episodes")
+    if failed_episodes:
+        print(f"Failed episodes: {len(failed_episodes)} ({failed_episodes})")
+    else:
+        print("No failed episodes")
+    print(f"Results saved to: {args.output_dir}")
+    print(f"{'='*60}")
 
 if __name__ == "__main__":
     main()
