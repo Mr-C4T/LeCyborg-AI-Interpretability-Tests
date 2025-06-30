@@ -54,32 +54,26 @@ class ACTPolicyWithAttention:
         # This mapping assumes token order: [latent, (robot_state), (env_state), (sensor), (image_tokens...)]
         self.token_key_to_index = self._build_token_key_to_index()
 
-    def _build_token_key_to_index(self):
-        """
-        Builds a mapping from observation keys to token indices
-        For standard ACT, order is: latent, robot_state, env_state, sensor, then images (flattened per image)
-        """
-        idx = 0
-        mapping = {}
-        mapping['latent'] = idx
+def _build_token_key_to_index(self):
+    idx = 0
+    mapping = {}
+    mapping['latent'] = idx
+    idx += 1
+    if getattr(self.config, "robot_state_feature", None):
+        mapping['observation.state'] = idx
         idx += 1
-        if getattr(self.config, "robot_state_feature", None):
-            mapping['observation.state'] = idx
-            idx += 1
-        if getattr(self.config, "env_state_feature", None):
-            mapping['observation.env_state'] = idx
-            idx += 1
-        if "observation.sensor" in getattr(self.config, "all_features", []):
-            mapping['observation.sensor'] = idx
-            idx += 1
-        # Map image features to their starting token indices
-        if self.config.image_features:
-            for image_idx, image_key in enumerate(self.config.image_features):
-                mapping[image_key] = idx
-                # Each image gets h*w tokens; but we can't know h*w here, set just the start index
-                # The rest is up to downstream code to process
-                # idx += h*w (not incrementing here)
-        return mapping
+    # Force-add observation.sensor if you know it's in the input tokens:
+    mapping['observation.sensor'] = idx
+    idx += 1
+    if getattr(self.config, "env_state_feature", None):
+        mapping['observation.env_state'] = idx
+        idx += 1
+    if self.config.image_features:
+        for image_idx, image_key in enumerate(self.config.image_features):
+            mapping[image_key] = idx
+            # idx += h*w  # usually image tokens are flattened after
+    print("Token mapping:", mapping)
+    return mapping
 
     def select_action(self, observation: Dict[str, torch.Tensor]) -> Tuple[torch.Tensor, List[torch.Tensor]]:
         """
