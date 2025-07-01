@@ -4,10 +4,16 @@ This is a **fork of [physical-AI-interpretability](https://github.com/villekuosm
 
 While the original work focused on **visual attention mapping** + **proprioceptive features**, this fork's goal is to extend the attention visualization tools to support our **EMG sensor data** collected from the LeCyborg wearable myo sensor. (🚧 Work in progress 🚧)
 
-## 🧠 LeCyborg Attention Mapping
+## 🦾 LeCyborg Dataset
 
-<img src="assets/emg_attention.gif" width="800">
-<img src="assets/emg_dataset.gif" width="800">
+<img src="assets/emg_dataset.gif" width="400">
+
+## Visual Attention Mapping
+
+<img src="assets/emg_attention.gif" width="400">
+
+## EMG Attention
+<img src="assets/emg_attention_animation_dark.gif" width="400">
 
 ## 📖 Original Work & Credits
 
