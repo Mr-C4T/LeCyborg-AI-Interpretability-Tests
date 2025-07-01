@@ -15,6 +15,8 @@ While the original work focused on **visual attention mapping** + **propriocepti
 ## EMG Attention
 <img src="assets/emg_attention_animation_dark.gif" width="400">
 
+<img src="assets/sensor+rawAtt.gif" width="400">
+
 ## 📖 Original Work & Credits
 
 #### Huge thanks to [villekuosmanen](https://github.com/villekuosmanen) for sharing such great work. 
