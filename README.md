@@ -13,9 +13,10 @@ While the original work focused on **visual attention mapping** + **propriocepti
 <img src="assets/emg_attention.gif" width="400">
 
 ## EMG Attention
-<img src="assets/sensor+normAtt.gif" width="400">
 
 <img src="assets/sensor+rawAtt.gif" width="400">
+
+<img src="assets/sensor+normAtt.gif" width="400">
 
 ## 📖 Original Work & Credits
 
